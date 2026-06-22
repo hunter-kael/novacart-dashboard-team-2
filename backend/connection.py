@@ -33,6 +33,7 @@ def get_sqlite_connection():
         )
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row  # allows dict-like access to columns
+    print("testing hello ")
     return conn
 
 
@@ -131,3 +132,8 @@ def execute_query(conn, query: str, params: tuple = ()) -> list[dict]:
         cursor = conn.execute(query, params)
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+
+
+# testing git push 
