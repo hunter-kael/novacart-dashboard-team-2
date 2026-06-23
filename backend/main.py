@@ -182,23 +182,41 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
     conn = get_connection()
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    #change to include switch to snowflake query
-    results = execute_query(conn, """
-        SELECT
-            SUBSTR(order_date, 1, 7) AS month,   -- YYYY-MM
-            COUNT(*) AS order_count,
-            SUM(
-                CASE
-                    WHEN status IN ('delivered', 'shipped') THEN amount
-                    ELSE 0
-                END
-            ) AS revenue
-        FROM fact_orders
-        WHERE order_date >= ?
-          AND order_date <= ?
-        GROUP BY month
-        ORDER BY month
-    """, [start, end])
+    if os.getenv("DATA_BACKEND") == "sqlite":
+        query = """
+            SELECT
+                SUBSTR(order_date, 1, 7) AS month,   -- YYYY-MM
+                COUNT(*) AS order_count,
+                SUM(
+                    CASE
+                        WHEN status IN ('delivered', 'shipped') THEN amount
+                        ELSE 0
+                    END
+                ) AS revenue
+            FROM fact_orders
+            WHERE order_date >= ?
+              AND order_date <= ?
+            GROUP BY month
+            ORDER BY month
+        """
+    else:
+        query = """
+            SELECT
+                SUBSTR(order_date, 1, 7) AS month,
+                COUNT(*) AS order_count,
+                SUM(
+                    CASE
+                        WHEN status IN ('delivered', 'shipped') THEN amount
+                        ELSE 0
+                    END
+                ) AS revenue
+            FROM fact_orders
+            WHERE order_date >= %s
+              AND order_date <= %s
+            GROUP BY month
+            ORDER BY month
+        """
+    results = execute_query(conn, query, [start, end])
     if not results:
         return []
     response = []
