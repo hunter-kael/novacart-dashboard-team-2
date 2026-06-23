@@ -24,6 +24,7 @@ The connection and query helpers are already set up in connection.py.
 
 import os
 import time
+from urllib import response
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -180,37 +181,41 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
     Snowflake compatible
     """
     conn = get_connection()
+
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    results = execute_query(conn, """
-        SELECT
-            TO_CHAR(order_date, 'YYYY-MM') AS month,
-            RTRIM(TO_CHAR(order_date, 'Month')) AS month_name,
+    def get_orders_by_month(conn, start, end):
+        query = """
+            SELECT
+            strftime('%Y-%m', order_date) AS month,
             COUNT(*) AS order_count,
             SUM(
-                CASE 
-                    WHEN status IN ('delivered', 'shipped') THEN amount
-                    ELSE 0
-                END
+                CASE
+                WHEN status IN ('delivered', 'shipped') THEN amount
+                ELSE 0
+                    END
             ) AS revenue
-        FROM fact_orders
-        WHERE order_date >= %s
-          AND order_date <= %s
-        GROUP BY
-            TO_CHAR(order_date, 'YYYY-MM'),
-            RTRIM(TO_CHAR(order_date, 'Month'))
-        ORDER BY month
-    """, [start, end])
-    if not results:
-        return []
-    response = []
-    for row in results:
-        response.append({
-            "month": row["MONTH"],
-            "month_name": row["MONTH_NAME"],
-            "order_count": row["ORDER_COUNT"],
-            "revenue": round(row["REVENUE"] or 0, 2),
-        })
-    return response
+            FROM fact_orders
+            WHERE order_date >= ?
+            AND order_date <= ?
+            GROUP BY month
+            ORDER BY month
+        """
+        results = execute_query(conn, query, [start, end])
+
+        if not results:
+            return []
+        
+        response = []
+
+        for row in results:
+            response.append({
+            "month": row["month"],
+            "month_name": row["month_name"],
+            "order_count": row["order_count"],
+            "revenue": round(row["revenue"] or 0, 2),
+            })
+            
+        return response
 
 
 @app.get("/franchise/products", tags=["Franchise"])
