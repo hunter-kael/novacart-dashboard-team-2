@@ -233,6 +233,27 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
     conn = get_connection()
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
+    results = execute_query(conn, """
+        
+        SELECT *
+            JOIN(fact_orders, dim_product) 
+            COUNT(DISTINCT order_id)    AS total_orders,
+            SUM(amount)                 AS total_revenue,
+            COUNT(DISTINCT customer_id) AS unique_customers,
+            MIN(order_date)             AS start_date,
+            MAX(order_date)             AS end_date
+        FROM fact_orders
+        WHERE status IN ('delivered', 'shipped')
+    """)
+    
+    row = results[0]
+    return {
+        "total_revenue":     round(row["total_revenue"] or 0, 2),
+        "total_orders":      row["total_orders"],
+        "unique_customers":  row["unique_customers"],
+        "date_range": {"start": row["start_date"], "end": row["end_date"]},
+    }
+
     raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
@@ -257,6 +278,36 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
     conn = get_connection()
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
+    results = execute_query(conn, f"""
+        SELECT
+        c.customer_id,
+        c.name,
+        c.addr_city AS city,
+        c.addr_state AS state,
+        COUNT(DISTINCT o.order_id) AS total_orders,
+        SUM(o.total_amount) AS total_spent
+        FROM fact_orders o
+        JOIN dim_customer c
+        ON o.customer_id = c.customer_id
+        WHERE c.is_current = 1
+        json -1 line
+
+        AND o.order_date >= '{start}'
+
+
+        json -1 line
+
+        AND o.order_date <= '{end}'
+
+        GROUP BY
+        c.customer_id, c.name, c.addr_city, c.addr_state
+        ORDER BY
+        total_spent DESC
+        LIMIT 20
+        """)
+    
+    return results 
+
     raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
