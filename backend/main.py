@@ -65,7 +65,7 @@ if CLIENT_VALIDATION == "Dev":
 async def startup():
     print("\nStarting NovaCart Dashboard API")
     print(f"Port:            {PORT}")
-    print(f"Data backend:    {os.getenv('DATA_BACKEND', 'sqlite')}")
+    print(f"Data backend:    {os.getenv('DATA_BACKEND', 'snowflake')}")
     print(f"Validation mode: {CLIENT_VALIDATION}")
     print(f"Docs:            http://localhost:{PORT}/docs\n")
 
@@ -148,25 +148,25 @@ def get_summary():
     conn = get_connection()
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    #
-    # results = execute_query(conn, """
-    #     SELECT
-    #         COUNT(DISTINCT order_id)    AS total_orders,
-    #         SUM(amount)                 AS total_revenue,
-    #         COUNT(DISTINCT customer_id) AS unique_customers,
-    #         MIN(order_date)             AS start_date,
-    #         MAX(order_date)             AS end_date
-    #     FROM fact_orders
-    #     WHERE status IN ('delivered', 'shipped')
-    # """)
-    #
-    # row = results[0]
-    # return {
-    #     "total_revenue":     round(row["total_revenue"] or 0, 2),
-    #     "total_orders":      row["total_orders"],
-    #     "unique_customers":  row["unique_customers"],
-    #     "date_range": {"start": row["start_date"], "end": row["end_date"]},
-    # }
+    
+    results = execute_query(conn, """
+        SELECT
+            COUNT(DISTINCT order_id)    AS total_orders,
+            SUM(amount)                 AS total_revenue,
+            COUNT(DISTINCT customer_id) AS unique_customers,
+            MIN(order_date)             AS start_date,
+            MAX(order_date)             AS end_date
+        FROM fact_orders
+        WHERE status IN ('delivered', 'shipped')
+    """)
+    
+    row = results[0]
+    return {
+        "total_revenue":     round(row["total_revenue"] or 0, 2),
+        "total_orders":      row["total_orders"],
+        "unique_customers":  row["unique_customers"],
+        "date_range": {"start": row["start_date"], "end": row["end_date"]},
+    }
     # ─────────────────────────────────────────────────────────────────────────
 
     raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
@@ -207,21 +207,23 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
     Returns the top 10 products by revenue for the given date range.
 
     Expected response:
-    [
+        [
         { "product_id": "P001", "name": "Wireless Headphones", "category": "Electronics",
-          "units_sold": 342, "revenue": 30578.58 }
+        "units_sold": 342, "revenue": 30578.58 }
     ]
 
-    TODO: implement this endpoint.
-    Hints:
-      - JOIN fact_orders with dim_product on product_id
-      - GROUP BY product_id, name, category
-      - ORDER BY revenue DESC, LIMIT 10
+: implement this endpoint.
+    :
+    - JOIN fact_orders with dim_product on product_id
+    - GROUP BY product_id, name, category
+    - ORDER BY revenue DESC, LIMIT 10
     """
     conn = get_connection()
 
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+# ── YOUR CODE HERE ──────────────────────────────────────────────────────
+
+raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+
 
 
 @app.get("/franchise/customers", tags=["Franchise"])
