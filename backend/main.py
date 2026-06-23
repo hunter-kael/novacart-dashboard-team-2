@@ -177,27 +177,24 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
     """
     Returns monthly order volume and revenue for the given date range.
     Used to power the orders overview chart.
-    Snowflake compatible
     """
     conn = get_connection()
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
+    #change to include switch to snowflake query
     results = execute_query(conn, """
         SELECT
-            TO_CHAR(order_date, 'YYYY-MM') AS month,
-            RTRIM(TO_CHAR(order_date, 'Month')) AS month_name,
+            SUBSTR(order_date, 1, 7) AS month,   -- YYYY-MM
             COUNT(*) AS order_count,
             SUM(
-                CASE 
+                CASE
                     WHEN status IN ('delivered', 'shipped') THEN amount
                     ELSE 0
                 END
             ) AS revenue
         FROM fact_orders
-        WHERE order_date >= %s
-          AND order_date <= %s
-        GROUP BY
-            TO_CHAR(order_date, 'YYYY-MM'),
-            RTRIM(TO_CHAR(order_date, 'Month'))
+        WHERE order_date >= ?
+          AND order_date <= ?
+        GROUP BY month
         ORDER BY month
     """, [start, end])
     if not results:
@@ -205,10 +202,9 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
     response = []
     for row in results:
         response.append({
-            "month": row["MONTH"],
-            "month_name": row["MONTH_NAME"],
-            "order_count": row["ORDER_COUNT"],
-            "revenue": round(row["REVENUE"] or 0, 2),
+            "month": row["month"], # YYYY-MM                     
+            "order_count": row["order_count"],
+            "revenue": round(row["revenue"] or 0, 2),
         })
     return response
 
