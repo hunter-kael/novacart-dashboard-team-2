@@ -153,8 +153,8 @@ def get_summary():
     #
     results = execute_query(conn, """
         SELECT
-            COUNT(DISTINCT order_id)    AS total_orders,
             SUM(amount)                 AS total_revenue,
+            COUNT(DISTINCT order_id)    AS total_orders,
             COUNT(DISTINCT customer_id) AS unique_customers,
             MIN(order_date)             AS start_date,
             MAX(order_date)             AS end_date
@@ -171,7 +171,9 @@ def get_summary():
     }
     # ─────────────────────────────────────────────────────────────────────────
 
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    
+
+    # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
 @app.get("/franchise/orders", tags=["Franchise"])
@@ -256,7 +258,7 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
         "date_range": {"start": row["start_date"], "end": row["end_date"]},
     }
 
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
 @app.get("/franchise/customers", tags=["Franchise"])
@@ -310,7 +312,7 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
     
     return results 
 
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
 @app.get("/franchise/cities", tags=["Franchise"])
@@ -331,6 +333,20 @@ def get_cities(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY revenue DESC
     """
     conn = get_connection()
+    results = execute_query(conn, f"""
+        SELECT
+            c.addr_city AS city,
+            c.addr_state AS state,
+            COUNT(o.order_id) AS order_count,
+            SUM(o.amount) AS revenue
+        FROM fact_orders o
+        JOIN dim_customer c
+            ON o.customer_id = c.customer_id
+        WHERE c.is_current = 1
+        AND o.order_date BETWEEN '{start}' AND '{end}'
+        GROUP BY c.addr_city, c.addr_state
+        ORDER BY revenue DESC""")
+    return results
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
