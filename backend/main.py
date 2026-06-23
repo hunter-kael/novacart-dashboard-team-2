@@ -148,6 +148,9 @@ def get_summary():
       - Use MIN/MAX of order_date for date_range
     """
     conn = get_connection()
+
+    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
+    #
     results = execute_query(conn, """
         SELECT
             COUNT(DISTINCT order_id)    AS total_orders,
@@ -176,28 +179,40 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
     """
     Returns monthly order volume and revenue for the given date range.
     Used to power the orders overview chart.
-
-    Query parameters:
-      start: start date (YYYY-MM-DD)
-      end:   end date (YYYY-MM-DD)
-
-    Expected response:
-    [
-        { "month": "2022-01", "month_name": "January", "order_count": 842, "revenue": 128450.00 },
-        { "month": "2022-02", "month_name": "February", "order_count": 910, "revenue": 141230.00 }
-    ]
-
-    TODO: implement this endpoint.
-    Hints:
-      - JOIN fact_orders with dim_date on date_key
-      - GROUP BY year, month, month_name
-      - Filter order_date between start and end
-      - Only include delivered + shipped for revenue
+    Snowflake compatible
     """
     conn = get_connection()
-
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    results = execute_query(conn, """
+        SELECT
+            TO_CHAR(order_date, 'YYYY-MM') AS month,
+            RTRIM(TO_CHAR(order_date, 'Month')) AS month_name,
+            COUNT(*) AS order_count,
+            SUM(
+                CASE 
+                    WHEN status IN ('delivered', 'shipped') THEN amount
+                    ELSE 0
+                END
+            ) AS revenue
+        FROM fact_orders
+        WHERE order_date >= %s
+          AND order_date <= %s
+        GROUP BY
+            TO_CHAR(order_date, 'YYYY-MM'),
+            RTRIM(TO_CHAR(order_date, 'Month'))
+        ORDER BY month
+    """, [start, end])
+    if not results:
+        return []
+    response = []
+    for row in results:
+        response.append({
+            "month": row["MONTH"],
+            "month_name": row["MONTH_NAME"],
+            "order_count": row["ORDER_COUNT"],
+            "revenue": round(row["REVENUE"] or 0, 2),
+        })
+    return response
 
 
 @app.get("/franchise/products", tags=["Franchise"])
@@ -220,6 +235,27 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
     conn = get_connection()
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
+    results = execute_query(conn, """
+        
+        SELECT *
+            JOIN(fact_orders, dim_product) 
+            COUNT(DISTINCT order_id)    AS total_orders,
+            SUM(amount)                 AS total_revenue,
+            COUNT(DISTINCT customer_id) AS unique_customers,
+            MIN(order_date)             AS start_date,
+            MAX(order_date)             AS end_date
+        FROM fact_orders
+        WHERE status IN ('delivered', 'shipped')
+    """)
+    
+    row = results[0]
+    return {
+        "total_revenue":     round(row["total_revenue"] or 0, 2),
+        "total_orders":      row["total_orders"],
+        "unique_customers":  row["unique_customers"],
+        "date_range": {"start": row["start_date"], "end": row["end_date"]},
+    }
+
     raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
@@ -244,6 +280,36 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
     conn = get_connection()
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
+    results = execute_query(conn, f"""
+        SELECT
+        c.customer_id,
+        c.name,
+        c.addr_city AS city,
+        c.addr_state AS state,
+        COUNT(DISTINCT o.order_id) AS total_orders,
+        SUM(o.total_amount) AS total_spent
+        FROM fact_orders o
+        JOIN dim_customer c
+        ON o.customer_id = c.customer_id
+        WHERE c.is_current = 1
+        json -1 line
+
+        AND o.order_date >= '{start}'
+
+
+        json -1 line
+
+        AND o.order_date <= '{end}'
+
+        GROUP BY
+        c.customer_id, c.name, c.addr_city, c.addr_state
+        ORDER BY
+        total_spent DESC
+        LIMIT 20
+        """)
+    
+    return results 
+
     raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
