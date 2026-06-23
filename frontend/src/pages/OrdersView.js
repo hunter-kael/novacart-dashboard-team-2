@@ -30,18 +30,18 @@ const mockOrders = [
   { month: '2023-12', month_name: 'Dec', order_count: 510, revenue: 16850 },
 ];
 
-const mockCountries = [
-  { country: 'United States', revenue: 120500 },
-  { country: 'Canada', revenue: 24500 },
-  { country: 'Mexico', revenue: 15800 },
-  { country: 'United Kingdom', revenue: 14200 },
-  { country: 'Germany', revenue: 11000 },
-  { country: 'France', revenue: 9400 },
-  { country: 'Spain', revenue: 7600 },
-  { country: 'Italy', revenue: 7100 },
-  { country: 'Australia', revenue: 6500 },
-  { country: 'India', revenue: 5900 },
-  { country: 'Brazil', revenue: 5200 },
+const mockCities = [
+  { city: 'New York', state: 'NY', revenue: 120500 },
+  { city: 'Los Angeles', state: 'CA', revenue: 24500 },
+  { city: 'Chicago', state: 'IL', revenue: 15800 },
+  { city: 'Houston', state: 'TX', revenue: 14200 },
+  { city: 'Phoenix', state: 'AZ', revenue: 11000 },
+  { city: 'Philadelphia', state: 'PA', revenue: 9400 },
+  { city: 'San Antonio', state: 'TX', revenue: 7600 },
+  { city: 'San Diego', state: 'CA', revenue: 7100 },
+  { city: 'Dallas', state: 'TX', revenue: 6500 },
+  { city: 'San Jose', state: 'CA', revenue: 5900 },
+  { city: 'Austin', state: 'TX', revenue: 5200 },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ export default function OrdersView() {
   const [endDate, setEndDate] = useState(mockSummary.date_range.end);
   const [summary, setSummary] = useState(null);
   const [orders, setOrders] = useState([]);
-  const [countries, setCountries] = useState([]);
+  const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -156,18 +156,18 @@ export default function OrdersView() {
       // const [s, o, c] = await Promise.all([
       //   getSummary(franchiseId),
       //   getOrders(franchiseId, startDate, endDate),
-      //   getCountries(franchiseId, startDate, endDate),
+      //   getCities(franchiseId, startDate, endDate),
       // ]);
 
       const s = mockSummary;
       const startMonth = startDate.slice(0, 7);
       const endMonth = endDate.slice(0, 7);
       const o = mockOrders.filter((r) => r.month >= startMonth && r.month <= endMonth);
-      const c = [...mockCountries].sort((a, b) => b.revenue - a.revenue);
+      const c = [...mockCities].sort((a, b) => b.revenue - a.revenue);
 
       setSummary(s);
       setOrders(o);
-      setCountries(c);
+      setCities(c);
     } catch (err) {
       setError(err.message || 'Failed to load data');
     } finally {
@@ -175,7 +175,7 @@ export default function OrdersView() {
     }
   }
 
-  const maxCountryRev = countries[0]?.revenue ?? 1;
+  const maxCityRev = cities[0]?.revenue ?? 1;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -183,7 +183,7 @@ export default function OrdersView() {
 
       <div className="page">
 
-        {/* Filter bar — reuses your existing .filter-bar and .btn-apply classes */}
+        {/* Filter bar */}
         <div className="filter-bar">
           <label>From</label>
           <input
@@ -220,11 +220,6 @@ export default function OrdersView() {
 
         {!loading && !error && (
           <>
-            {/*
-             * Layout: KPI sidebar (240px) + Monthly chart (remaining width)
-             * The other team stacks everything full-width. This sidebar approach
-             * keeps KPIs always visible while charts take up the real estate.
-             */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '240px 1fr',
@@ -257,11 +252,7 @@ export default function OrdersView() {
                 />
               </div>
 
-              {/*
-               * Dual-axis chart: revenue as bars (left axis) + order count
-               * as a line (right axis). Shows correlation between volume and
-               * revenue in one view instead of two separate charts.
-               */}
+              {/* Dual-axis monthly chart */}
               <div className="card" style={{ marginBottom: 0 }}>
                 <div style={{
                   display: 'flex',
@@ -340,11 +331,7 @@ export default function OrdersView() {
               </div>
             </div>
 
-            {/*
-             * Country data as a ranked table with inline share bars.
-             * Shows rank, name, share %, and revenue — more info than a
-             * plain bar chart, and a completely different visual treatment.
-             */}
+            {/* City revenue ranked table */}
             <div className="card">
               <div style={{
                 display: 'flex',
@@ -352,21 +339,22 @@ export default function OrdersView() {
                 alignItems: 'baseline',
                 marginBottom: 16,
               }}>
-                <span className="section-title">Revenue by Country</span>
+                <span className="section-title">Revenue by City</span>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  Top {Math.min(countries.length, 10)}
+                  Top {Math.min(cities.length, 10)}
                 </span>
               </div>
 
-              {countries.length > 0 ? (
+              {cities.length > 0 ? (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       {[
-                        { label: '#', align: 'center' },
-                        { label: 'Country', align: 'left' },
-                        { label: 'Share', align: 'left' },
-                        { label: 'Revenue', align: 'right' },
+                        { label: '#',       align: 'center' },
+                        { label: 'City',    align: 'left'   },
+                        { label: 'State',   align: 'left'   },
+                        { label: 'Share',   align: 'left'   },
+                        { label: 'Revenue', align: 'right'  },
                       ].map(({ label, align }) => (
                         <th key={label} style={{
                           padding: '6px 10px',
@@ -384,19 +372,15 @@ export default function OrdersView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {countries.slice(0, 10).map((c, i) => {
-                      const sharePct = Math.round((c.revenue / maxCountryRev) * 100);
-                      const isTop = i === 0;
+                    {cities.slice(0, 10).map((c, i) => {
+                      const totalCityRev = cities.slice(0, 10).reduce((sum, c) => sum + c.revenue, 0);
+                      const sharePct = Math.round((c.revenue / totalCityRev) * 100);                      const isTop = i === 0;
                       return (
                         <tr
-                          key={c.country}
+                          key={`${c.city}-${c.state}`}
                           style={{ borderBottom: '1px solid var(--border)' }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'var(--bg-primary)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-primary)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                         >
                           {/* Rank */}
                           <td style={{
@@ -410,17 +394,26 @@ export default function OrdersView() {
                             {i + 1}
                           </td>
 
-                          {/* Name */}
+                          {/* City */}
                           <td style={{
                             padding: '10px 10px',
                             color: 'var(--text-primary)',
                             fontWeight: isTop ? 600 : 400,
                           }}>
-                            {c.country}
+                            {c.city}
+                          </td>
+
+                          {/* State */}
+                          <td style={{
+                            padding: '10px 10px',
+                            color: 'var(--text-secondary)',
+                            fontSize: 12,
+                          }}>
+                            {c.state}
                           </td>
 
                           {/* Share bar */}
-                          <td style={{ padding: '10px 10px', width: '40%' }}>
+                          <td style={{ padding: '10px 10px', width: '38%' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <div style={{
                                 flex: 1,
@@ -464,7 +457,7 @@ export default function OrdersView() {
                   </tbody>
                 </table>
               ) : (
-                <div className="loading" style={{ height: 160 }}>No country data available</div>
+                <div className="loading" style={{ height: 160 }}>No city data available</div>
               )}
             </div>
           </>

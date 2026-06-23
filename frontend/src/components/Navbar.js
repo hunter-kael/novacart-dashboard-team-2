@@ -3,59 +3,123 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../utils/ThemeContext';
 import ServiceStatus from './ServiceStatus';
 
+const links = [
+  { label: 'Orders',    path: '/orders',    icon: 'ti-chart-bar'    },
+  { label: 'Products',  path: '/products',  icon: 'ti-package'      },
+  { label: 'Customers', path: '/customers', icon: 'ti-users'        },
+];
+
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { dark, toggle } = useTheme();
 
-  const links = [
-    { label: '📊 Orders',    path: '/orders'    },
-    { label: '📦 Products',  path: '/products'  },
-    { label: '👤 Customers', path: '/customers' },
-  ];
-
   return (
-    <nav style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 24px', height: 56,
-      background: dark ? '#0D1B2A' : '#0D2B4E',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-      position: 'sticky', top: 0, zIndex: 100,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
-           onClick={() => navigate('/')}>
-        <span style={{ fontSize: 20 }}>🛒</span>
-        <span style={{ color: '#fff', fontWeight: 700, fontSize: 18 }}>NovaCart</span>
-        <span style={{ color: '#4DB6AC', fontSize: 12, marginLeft: 4 }}>Dashboard</span>
-      </div>
+    <>
+      {/* Tabler icons font */}
+      <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"
+      />
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        {links.map(({ label, path }) => {
-          const active = location.pathname === path;
-          return (
-            <button key={path} onClick={() => navigate(path)}
-              style={{
-                background: active ? 'rgba(77,182,172,0.2)' : 'transparent',
-                border: active ? '1px solid #4DB6AC' : '1px solid transparent',
-                color: active ? '#4DB6AC' : '#B0BEC5',
-                borderRadius: 6, padding: '4px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500,
-              }}>
-              {label}
-            </button>
-          );
-        })}
-      </div>
+      <nav style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 24px',
+        height: 54,
+        background: dark ? '#0A1520' : '#0D2B4E',
+        borderBottom: dark ? '1px solid #1E3248' : '1px solid rgba(255,255,255,0.08)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+      }}>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <ServiceStatus />
-        <button onClick={toggle} title={dark ? 'Light mode' : 'Dark mode'}
-          style={{
-            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-            color: '#fff', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 16,
+        {/* Logo */}
+        <div
+          onClick={() => navigate('/')}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+        >
+          <i className="ti ti-shopping-cart" style={{ fontSize: 18, color: 'var(--accent)' }} aria-hidden="true" />
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' }}>
+            NovaCart
+          </span>
+          <span style={{
+            color: 'rgba(255,255,255,0.35)',
+            fontSize: 13,
+            fontWeight: 400,
+            marginLeft: 2,
           }}>
-          {dark ? '☀️' : '🌙'}
-        </button>
-      </div>
-    </nav>
+            Dashboard
+          </span>
+        </div>
+
+        {/* Nav links */}
+        <div style={{ display: 'flex', gap: 2 }}>
+          {links.map(({ label, path, icon }) => {
+            const active = location.pathname === path;
+            return (
+              <button
+                key={path}
+                onClick={() => navigate(path)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: active ? 'rgba(77,182,172,0.15)' : 'transparent',
+                  border: 'none',
+                  borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+                  color: active ? 'var(--accent)' : 'rgba(255,255,255,0.5)',
+                  borderRadius: 0,
+                  padding: '0 14px',
+                  height: 54,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 400,
+                  transition: 'color 0.15s, border-color 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+                }}
+              >
+                <i className={`ti ${icon}`} style={{ fontSize: 15 }} aria-hidden="true" />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right side */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <ServiceStatus />
+
+          <button
+            onClick={toggle}
+            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              background: 'rgba(255,255,255,0.07)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 6,
+              color: 'rgba(255,255,255,0.7)',
+              cursor: 'pointer',
+              fontSize: 15,
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+          >
+            <i className={dark ? 'ti ti-sun' : 'ti ti-moon'} aria-hidden="true" />
+          </button>
+        </div>
+      </nav>
+    </>
   );
 }

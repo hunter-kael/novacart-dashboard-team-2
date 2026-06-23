@@ -1,40 +1,123 @@
-/**
- * ProductsView.js — Product Performance page
- *
- * This page shows:
- *   - A bar chart of top 10 products by revenue
- *   - A table with product name, category, units sold, and revenue
- *   - A date range filter
- *
- * The data fetching is already wired up.
- * Your job: implement the UI.
- */
-
-import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Cell,
+} from 'recharts';
 import Navbar from '../components/Navbar';
 import { getProducts } from '../utils/api';
 
+// ─── Mock data ────────────────────────────────────────────────────────────────
+
 const MOCK_PRODUCTS = [
-  { product_id: 1, name: 'NovaCart Express', category: 'Logistics', units_sold: 680, revenue: 295400 },
-  { product_id: 2, name: 'Rapid Ship Loader', category: 'Equipment', units_sold: 560, revenue: 237600 },
-  { product_id: 3, name: 'Smart Inventory Tag', category: 'Technology', units_sold: 420, revenue: 148200 },
-  { product_id: 4, name: 'Warehouse Beacon', category: 'Technology', units_sold: 390, revenue: 133650 },
-  { product_id: 5, name: 'Green Packaging Kit', category: 'Consumables', units_sold: 520, revenue: 124000 },
-  { product_id: 6, name: 'Fleet Management Suite', category: 'Software', units_sold: 180, revenue: 112200 },
-  { product_id: 7, name: 'Customer Portal Plus', category: 'Software', units_sold: 230, revenue: 103500 },
-  { product_id: 8, name: 'Premium Pallet Wrap', category: 'Consumables', units_sold: 740, revenue: 96800 },
-  { product_id: 9, name: 'Auto Sort Conveyor', category: 'Equipment', units_sold: 90, revenue: 89700 },
-  { product_id: 10, name: 'Collaborative VR Training', category: 'Services', units_sold: 75, revenue: 81250 },
+  { product_id: 1,  name: 'NovaCart Express',         category: 'Logistics',   units_sold: 680, revenue: 295400 },
+  { product_id: 2,  name: 'Rapid Ship Loader',         category: 'Equipment',   units_sold: 560, revenue: 237600 },
+  { product_id: 3,  name: 'Smart Inventory Tag',       category: 'Technology',  units_sold: 420, revenue: 148200 },
+  { product_id: 4,  name: 'Warehouse Beacon',          category: 'Technology',  units_sold: 390, revenue: 133650 },
+  { product_id: 5,  name: 'Green Packaging Kit',       category: 'Consumables', units_sold: 520, revenue: 124000 },
+  { product_id: 6,  name: 'Fleet Management Suite',    category: 'Software',    units_sold: 180, revenue: 112200 },
+  { product_id: 7,  name: 'Customer Portal Plus',      category: 'Software',    units_sold: 230, revenue: 103500 },
+  { product_id: 8,  name: 'Premium Pallet Wrap',       category: 'Consumables', units_sold: 740, revenue:  96800 },
+  { product_id: 9,  name: 'Auto Sort Conveyor',        category: 'Equipment',   units_sold:  90, revenue:  89700 },
+  { product_id: 10, name: 'Collaborative VR Training', category: 'Services',    units_sold:  75, revenue:  81250 },
 ];
 
-// Format currency helper
-function formatCurrency(value) {
-  if (!value) return '$0';
-  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000)    return `$${(value / 1000).toFixed(0)}K`;
-  return `$${value.toFixed(2)}`;
+function hashHue(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (h * 31 + str.charCodeAt(i)) & 0xffffffff;
+  }
+  return Math.abs(h) % 360;
 }
+
+function categoryColor(category) {
+  const hue = hashHue(category);
+  return {
+    bar:  `hsl(${hue}, 58%, 45%)`,
+    text: `hsl(${hue}, 58%, 38%)`,
+    bg:   `hsla(${hue}, 58%, 45%, 0.12)`,
+  };
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const fmtCurrency = (v) => {
+  const n = Number(v);
+  if (!n) return '$0';
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n.toFixed(2)}`;
+};
+
+const truncate = (s, max = 22) =>
+  s && s.length > max ? `${s.slice(0, max - 1)}…` : s;
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function CategoryBadge({ category }) {
+  const { bg, text } = categoryColor(category);
+  return (
+    <span style={{
+      display: 'inline-block',
+      background: bg,
+      color: text,
+      fontSize: 11,
+      fontWeight: 600,
+      padding: '2px 8px',
+      borderRadius: 4,
+      letterSpacing: '0.03em',
+      whiteSpace: 'nowrap',
+    }}>
+      {category}
+    </span>
+  );
+}
+
+function SortIcon({ active, dir }) {
+  return (
+    <span style={{ marginLeft: 3, opacity: active ? 1 : 0.3, fontSize: 10 }}>
+      {active && dir === 'asc' ? '▲' : '▼'}
+    </span>
+  );
+}
+
+function ChartTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0]?.payload;
+  return (
+    <div style={{
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
+      borderRadius: 8,
+      padding: '10px 14px',
+      boxShadow: 'var(--shadow)',
+      fontSize: 12,
+      minWidth: 160,
+    }}>
+      <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+        {d?.name}
+      </div>
+      <div style={{ color: 'var(--text-secondary)', marginBottom: 2 }}>
+        Revenue: <strong style={{ color: 'var(--text-primary)' }}>{fmtCurrency(d?.revenue)}</strong>
+      </div>
+      <div style={{ color: 'var(--text-secondary)', marginBottom: 2 }}>
+        Units: <strong style={{ color: 'var(--text-primary)' }}>{Number(d?.units_sold).toLocaleString()}</strong>
+      </div>
+      <div style={{ color: 'var(--text-secondary)' }}>
+        Rev / unit: <strong style={{ color: 'var(--text-primary)' }}>
+          {fmtCurrency(Math.round(d?.revenue / d?.units_sold))}
+        </strong>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const SORT_OPTIONS = [
+  { key: 'revenue',      label: 'Revenue'    },
+  { key: 'units_sold',   label: 'Units'      },
+  { key: 'rev_per_unit', label: 'Rev / Unit' },
+];
 
 export default function ProductsView() {
   const [startDate, setStartDate] = useState('2022-01-01');
@@ -42,6 +125,9 @@ export default function ProductsView() {
   const [products,  setProducts]  = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
+  const [sortKey,   setSortKey]   = useState('revenue');
+  const [sortDir,   setSortDir]   = useState('desc');
+  const [activeBar, setActiveBar] = useState(null);
 
   useEffect(() => { loadData(); }, []);
 
@@ -51,13 +137,63 @@ export default function ProductsView() {
     try {
       const data = await getProducts(startDate, endDate);
       setProducts(Array.isArray(data) && data.length ? data : MOCK_PRODUCTS);
-    } catch (err) {
+    } catch {
       setProducts(MOCK_PRODUCTS);
-      setError(null);
     } finally {
       setLoading(false);
     }
   }
+
+  function handleSort(key) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  }
+
+  const enriched = useMemo(() =>
+    products.slice(0, 10).map((p) => ({
+      ...p,
+      revenue:      Number(p.revenue),
+      units_sold:   Number(p.units_sold),
+      rev_per_unit: Math.round(Number(p.revenue) / Number(p.units_sold)),
+    })),
+    [products]
+  );
+
+  // Unique categories present in the current data set — derived, not hardcoded
+  const categories = useMemo(() =>
+    [...new Set(enriched.map((p) => p.category))].sort(),
+    [enriched]
+  );
+
+  const chartData = [...enriched].sort((a, b) => b.revenue - a.revenue);
+
+  const tableData = [...enriched].sort((a, b) => {
+    const mul = sortDir === 'desc' ? -1 : 1;
+    return (a[sortKey] - b[sortKey]) * mul;
+  });
+
+  const thBase = {
+    padding: '10px 12px',
+    borderBottom: '1px solid var(--border)',
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    color: 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+    userSelect: 'none',
+  };
+
+  const tdBase = {
+    padding: '11px 12px',
+    borderBottom: '1px solid var(--border)',
+    fontSize: 13,
+    color: 'var(--text-primary)',
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -66,131 +202,178 @@ export default function ProductsView() {
 
         <div className="filter-bar">
           <label>From</label>
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           <label>To</label>
-          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           <button className="btn-apply" onClick={loadData}>Apply</button>
         </div>
 
         {error && (
-          <div style={{ color: '#C62828', padding: 16, background: '#FFEBEE', borderRadius: 8, marginBottom: 16 }}>
-            Error: {error}
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderLeft: '4px solid #C62828',
+            borderRadius: 'var(--radius)',
+            padding: '12px 16px',
+            color: '#C62828',
+            fontSize: 13,
+            marginBottom: 20,
+          }}>
+            {error}
           </div>
         )}
 
-        {loading && <div className="loading">Loading products data…</div>}
+        {loading && <div className="loading">Loading products…</div>}
 
-        {!loading && !error && (() => {
-          const sortedProducts = [...products]
-            .sort((a, b) => Number(b.revenue) - Number(a.revenue))
-            .slice(0, 10);
+        {!loading && !error && (
+          <div className="grid-2">
 
-          const truncateLabel = (label, max = 28) =>
-            label && label.length > max ? `${label.slice(0, max - 1)}…` : label;
+            {/* ── Chart ── */}
+            <div className="card">
+              <div style={{ marginBottom: 16 }}>
+                <div className="section-title">Top 10 by Revenue</div>
 
-          const tableStyles = {
-            width: '100%',
-            borderCollapse: 'collapse',
-            minWidth: 520,
-          };
-
-          const thStyles = {
-            textAlign: 'left',
-            padding: '14px 12px',
-            borderBottom: '1px solid var(--border)',
-            color: 'var(--text-secondary)',
-            fontSize: 12,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.02em',
-          };
-
-          const tdStyles = {
-            padding: '14px 12px',
-            borderBottom: '1px solid var(--border)',
-            color: 'var(--text-primary)',
-            fontSize: 14,
-          };
-
-          return (
-            <div className="grid-2">
-              <div className="card">
-                <div className="section-title" style={{ marginBottom: 16 }}>
-                  Top 10 Products by Revenue
+                {/* Legend — built from whatever categories are in the data */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10 }}>
+                  {categories.map((cat) => {
+                    const { bar } = categoryColor(cat);
+                    return (
+                      <span key={cat} style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        fontSize: 11, color: 'var(--text-secondary)',
+                      }}>
+                        <span style={{
+                          display: 'inline-block', width: 8, height: 8,
+                          borderRadius: 2, background: bar, flexShrink: 0,
+                        }} />
+                        {cat}
+                      </span>
+                    );
+                  })}
                 </div>
-                {sortedProducts.length ? (
-                  <ResponsiveContainer width="100%" height={340}>
-                    <BarChart
-                      layout="vertical"
-                      data={sortedProducts}
-                      margin={{ top: 10, right: 20, left: 20, bottom: 10 }}
+              </div>
+
+              {chartData.length ? (
+                <ResponsiveContainer width="100%" height={340}>
+                  <BarChart
+                    layout="vertical"
+                    data={chartData}
+                    margin={{ top: 4, right: 16, left: 16, bottom: 4 }}
+                    onMouseLeave={() => setActiveBar(null)}
+                  >
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={fmtCurrency}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={160}
+                      tick={{ fontSize: 11, fill: 'var(--text-secondary)' }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(n) => truncate(n, 22)}
+                    />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--border)', opacity: 0.5 }} />
+                    <Bar
+                      dataKey="revenue"
+                      radius={[0, 4, 4, 0]}
+                      onMouseEnter={(_, i) => setActiveBar(i)}
                     >
-                      <XAxis
-                        type="number"
-                        tick={{ fontSize: 12 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        width={190}
-                        tick={{ fontSize: 12 }}
-                        tickFormatter={(name) => truncateLabel(name, 30)}
-                      />
-                      <Tooltip
-                        formatter={(value) => formatCurrency(Number(value))}
-                        cursor={{ fill: 'rgba(0, 0, 0, 0.04)' }}
-                      />
-                      <Bar dataKey="revenue" fill="var(--accent)" radius={[6, 6, 6, 6]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="loading" style={{ height: 300 }}>
-                    No products available for this date range.
-                  </div>
-                )}
+                      {chartData.map((p, i) => (
+                        <Cell
+                          key={p.product_id}
+                          fill={categoryColor(p.category).bar}
+                          opacity={activeBar !== null && activeBar !== i ? 0.4 : 1}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="loading" style={{ height: 300 }}>No products for this range.</div>
+              )}
+            </div>
+
+            {/* ── Table ── */}
+            <div className="card">
+              <div style={{
+                display: 'flex', alignItems: 'baseline',
+                justifyContent: 'space-between', marginBottom: 14,
+              }}>
+                <div className="section-title">Product Details</div>
               </div>
 
-              <div className="card">
-                <div className="section-title" style={{ marginBottom: 16 }}>
-                  Product Details
-                </div>
-                {sortedProducts.length ? (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={tableStyles}>
-                      <thead>
-                        <tr>
-                          <th style={thStyles}>Name</th>
-                          <th style={thStyles}>Category</th>
-                          <th style={{ ...thStyles, textAlign: 'right' }}>Units Sold</th>
-                          <th style={{ ...thStyles, textAlign: 'right' }}>Revenue</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedProducts.map((product, index) => (
-                          <tr
-                            key={product.product_id}
-                            style={{ background: index % 2 === 0 ? 'rgba(0,0,0,0.03)' : 'transparent' }}
+              {tableData.length ? (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...thBase, textAlign: 'left' }}>Product</th>
+                        {SORT_OPTIONS.map(({ key, label }) => (
+                          <th
+                            key={key}
+                            onClick={() => handleSort(key)}
+                            style={{
+                              ...thBase,
+                              textAlign: 'right',
+                              cursor: 'pointer',
+                              color: sortKey === key ? 'var(--accent)' : 'var(--text-muted)',
+                            }}
                           >
-                            <td style={tdStyles}>{product.name}</td>
-                            <td style={tdStyles}>{product.category}</td>
-                            <td style={{ ...tdStyles, textAlign: 'right' }}>{Number(product.units_sold).toLocaleString()}</td>
-                            <td style={{ ...tdStyles, textAlign: 'right' }}>{formatCurrency(Number(product.revenue))}</td>
-                          </tr>
+                            {label}
+                            <SortIcon active={sortKey === key} dir={sortDir} />
+                          </th>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="loading" style={{ height: 200 }}>
-                    No product details to show.
-                  </div>
-                )}
-              </div>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableData.map((p) => (
+                        <tr
+                          key={p.product_id}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-primary)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <td style={tdBase}>
+                            <div style={{ fontWeight: 500, marginBottom: 3 }}>{p.name}</div>
+                            <CategoryBadge category={p.category} />
+                          </td>
+                          <td style={{
+                            ...tdBase, textAlign: 'right',
+                            fontWeight: sortKey === 'revenue' ? 600 : 400,
+                            color: sortKey === 'revenue' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          }}>
+                            {fmtCurrency(p.revenue)}
+                          </td>
+                          <td style={{
+                            ...tdBase, textAlign: 'right',
+                            fontWeight: sortKey === 'units_sold' ? 600 : 400,
+                            color: sortKey === 'units_sold' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          }}>
+                            {p.units_sold.toLocaleString()}
+                          </td>
+                          <td style={{
+                            ...tdBase, textAlign: 'right',
+                            fontWeight: sortKey === 'rev_per_unit' ? 600 : 400,
+                            color: sortKey === 'rev_per_unit' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          }}>
+                            {fmtCurrency(p.rev_per_unit)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="loading" style={{ height: 200 }}>No product details to show.</div>
+              )}
             </div>
-          );
-        })()}
+
+          </div>
+        )}
       </div>
     </div>
   );
