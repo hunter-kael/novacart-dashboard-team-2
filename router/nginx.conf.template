@@ -5,13 +5,14 @@ http {
     listen      8000;
     server_name localhost;
 
-    # /api/* → backend service (strips /api prefix)
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
     location /api {
+      set $backend "http://$BACKEND_SERVICE";
       rewrite /api/(.*) /$1 break;
-      proxy_pass http://$BACKEND_SERVICE/;
+      proxy_pass $backend/;
     }
 
-    # Everything else → frontend
     location / {
       proxy_pass http://$FRONTEND_SERVICE/;
     }

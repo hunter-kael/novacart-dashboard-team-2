@@ -89,7 +89,7 @@ jobs:
           docker push $REPO_URL/frontend_service_image_group${GROUP}:latest
 
       - name: Build & push router
-        working-directory: fork
+        working-directory: original
         run: |
           docker build --platform linux/amd64 -t router_service_image_group${GROUP}:latest ./router
           docker tag router_service_image_group${GROUP}:latest $REPO_URL/router_service_image_group${GROUP}:latest
