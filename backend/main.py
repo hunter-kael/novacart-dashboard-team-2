@@ -29,6 +29,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from datetime import datetime
 # from snowflake_connection import get_connection
 
 
@@ -152,6 +153,7 @@ def get_summary():
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
     #
+    check_inputs(start, end)
     results = execute_query(conn, """
         SELECT
             SUM(amount)                 AS total_revenue,
@@ -184,7 +186,7 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
     Used to power the orders overview chart.
     """
     conn = get_connection()
-
+    check_inputs(start, end)
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
     if os.getenv("DATA_BACKEND") == "sqlite":
         query = """
@@ -251,7 +253,7 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY revenue DESC, LIMIT 10
     """
     conn = get_connection()
-
+    check_inputs(start, end)
     results = execute_query(conn, """
         SELECT
             p.product_id AS product_id,
@@ -305,6 +307,7 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY total_spent DESC, LIMIT 20
     """
     conn = get_connection()
+    check_inputs(start, end)
     results = execute_query(conn, """
         SELECT
             c.customer_id AS customer_id,
@@ -363,6 +366,7 @@ def get_cities(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY revenue DESC
     """
     conn = get_connection()
+    check_inputs(start, end)
     results = execute_query(conn, f"""
         SELECT
             c.addr_city AS city,
@@ -381,3 +385,22 @@ def get_cities(start: str = "2022-01-01", end: str = "2022-12-31"):
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
     # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+
+def check_inputs(start: str, end: str):
+    """
+    Validates the start and end date inputs.
+    Raises HTTPException if invalid.
+    """
+    try:
+        start_date = datetime.strptime(start, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date. Use YYYY-MM-DD."
+        )
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Start date must be before or equal to end date."
+        )
