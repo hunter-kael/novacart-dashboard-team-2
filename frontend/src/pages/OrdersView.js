@@ -29,6 +29,7 @@ export default function OrdersView() {
          getOrders(startDate, endDate),
          getCities(startDate, endDate),
        ]);
+       console.log('Summary:', s);
 
       const startMonth = startDate.slice(0, 7);
       const endMonth = endDate.slice(0, 7);
