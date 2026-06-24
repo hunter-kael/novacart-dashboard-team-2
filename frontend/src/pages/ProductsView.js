@@ -6,111 +6,10 @@ import {
 import Navbar from '../components/Navbar';
 import { getProducts } from '../utils/api';
 import { useFilters } from '../contexts/FilterContext';
-
-const MOCK_PRODUCTS = [
-  { product_id: 1,  name: 'NovaCart Express',         category: 'Logistics',   units_sold: 680, revenue: 295400 },
-  { product_id: 2,  name: 'Rapid Ship Loader',         category: 'Equipment',   units_sold: 560, revenue: 237600 },
-  { product_id: 3,  name: 'Smart Inventory Tag',       category: 'Technology',  units_sold: 420, revenue: 148200 },
-  { product_id: 4,  name: 'Warehouse Beacon',          category: 'Technology',  units_sold: 390, revenue: 133650 },
-  { product_id: 5,  name: 'Green Packaging Kit',       category: 'Consumables', units_sold: 520, revenue: 124000 },
-  { product_id: 6,  name: 'Fleet Management Suite',    category: 'Software',    units_sold: 180, revenue: 112200 },
-  { product_id: 7,  name: 'Customer Portal Plus',      category: 'Software',    units_sold: 230, revenue: 103500 },
-  { product_id: 8,  name: 'Premium Pallet Wrap',       category: 'Consumables', units_sold: 740, revenue:  96800 },
-  { product_id: 9,  name: 'Auto Sort Conveyor',        category: 'Equipment',   units_sold:  90, revenue:  89700 },
-  { product_id: 10, name: 'Collaborative VR Training', category: 'Services',    units_sold:  75, revenue:  81250 },
-];
-
-function hashHue(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = (h * 31 + str.charCodeAt(i)) & 0xffffffff;
-  }
-  return Math.abs(h) % 360;
-}
-
-function categoryColor(category) {
-  const hue = hashHue(category);
-  return {
-    bar:  `hsl(${hue}, 58%, 45%)`,
-    text: `hsl(${hue}, 58%, 38%)`,
-    bg:   `hsla(${hue}, 58%, 45%, 0.12)`,
-  };
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const fmtCurrency = (v) => {
-  const n = Number(v);
-  if (!n) return '$0';
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(2)}`;
-};
-
-const truncate = (s, max = 22) =>
-  s && s.length > max ? `${s.slice(0, max - 1)}…` : s;
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function CategoryBadge({ category }) {
-  const { bg, text } = categoryColor(category);
-  return (
-    <span style={{
-      display: 'inline-block',
-      background: bg,
-      color: text,
-      fontSize: 11,
-      fontWeight: 600,
-      padding: '2px 8px',
-      borderRadius: 4,
-      letterSpacing: '0.03em',
-      whiteSpace: 'nowrap',
-    }}>
-      {category}
-    </span>
-  );
-}
-
-function SortIcon({ active, dir }) {
-  return (
-    <span style={{ marginLeft: 3, opacity: active ? 1 : 0.3, fontSize: 10 }}>
-      {active && dir === 'asc' ? '▲' : '▼'}
-    </span>
-  );
-}
-
-function ChartTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0]?.payload;
-  return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border)',
-      borderRadius: 8,
-      padding: '10px 14px',
-      boxShadow: 'var(--shadow)',
-      fontSize: 12,
-      minWidth: 160,
-    }}>
-      <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
-        {d?.name}
-      </div>
-      <div style={{ color: 'var(--text-secondary)', marginBottom: 2 }}>
-        Revenue: <strong style={{ color: 'var(--text-primary)' }}>{fmtCurrency(d?.revenue)}</strong>
-      </div>
-      <div style={{ color: 'var(--text-secondary)', marginBottom: 2 }}>
-        Units: <strong style={{ color: 'var(--text-primary)' }}>{Number(d?.units_sold).toLocaleString()}</strong>
-      </div>
-      <div style={{ color: 'var(--text-secondary)' }}>
-        Rev / unit: <strong style={{ color: 'var(--text-primary)' }}>
-          {fmtCurrency(Math.round(d?.revenue / d?.units_sold))}
-        </strong>
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+import { fmtCurrency, truncate, categoryColor } from '../utils/utils';
+import { CategoryBadge } from '../components/CategoryBadge';
+import { SortIcon } from '../components/SortIcon';
+import { ChartTooltip } from '../components/ChartTooltip';
 
 const SORT_OPTIONS = [
   { key: 'revenue',      label: 'Revenue'    },
@@ -135,9 +34,9 @@ export default function ProductsView() {
     setError(null);
     try {
       const data = await getProducts(startDate, endDate);
-      setProducts(Array.isArray(data) && data.length ? data : MOCK_PRODUCTS);
-    } catch {
-      setProducts(MOCK_PRODUCTS);
+      setProducts(Array.isArray(data) && data.length ? data : []);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }

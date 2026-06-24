@@ -3,8 +3,8 @@ import React, { createContext, useContext, useState } from 'react';
 const FilterContext = createContext(null);
 
 export function FilterProvider({ children }) {
-  const [startDate, setStartDate] = useState('2021-01-01');
-  const [endDate,   setEndDate]   = useState('2025-12-31');
+  const [startDate, setStartDate] = useState('2022-01-01');
+  const [endDate,   setEndDate]   = useState('2022-12-31');
 
   return (
     <FilterContext.Provider value={{ startDate, setStartDate, endDate, setEndDate }}>

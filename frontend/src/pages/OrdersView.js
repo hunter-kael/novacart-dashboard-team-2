@@ -4,10 +4,10 @@ import {
   ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 import Navbar from '../components/Navbar';
-import { getMockSummary, mockOrders, mockCityRows } from '../utils/mockData';
 import { fmtCurrency, fmtShort } from '../utils/utils';
 import { KpiCard, ChartTooltip } from '../components/OrdersComps';
 import { useFilters } from '../contexts/FilterContext';
+import { getSummary, getOrders, getCities } from '../utils/api';
 
 export default function OrdersView() {
   const [summary, setSummary] = useState(null);
@@ -24,32 +24,14 @@ export default function OrdersView() {
     setLoading(true);
     setError(null);
     try {
-      // Swap these with real API calls when ready:
-      // const [s, o, c] = await Promise.all([
-      //   getSummary(franchiseId, startDate, endDate),
-      //   getOrders(franchiseId, startDate, endDate),
-      //   getCities(franchiseId, startDate, endDate),
-      // ]);
-
-      const s = getMockSummary(startDate, endDate);
+       const [s, o, c] = await Promise.all([
+         getSummary(startDate, endDate),
+         getOrders(startDate, endDate),
+         getCities(startDate, endDate),
+       ]);
 
       const startMonth = startDate.slice(0, 7);
       const endMonth = endDate.slice(0, 7);
-      const o = mockOrders.filter((r) => r.month >= startMonth && r.month <= endMonth);
-
-      const filtered = mockCityRows.filter(
-        (r) => r.date >= startDate && r.date <= endDate
-      );
-      const cityMap = {};
-      for (const row of filtered) {
-        const key = `${row.city}||${row.state}`;
-        if (!cityMap[key]) {
-          cityMap[key] = { city: row.city, state: row.state, order_count: 0, revenue: 0 };
-        }
-        cityMap[key].order_count += row.order_count;
-        cityMap[key].revenue     += row.revenue;
-      }
-      const c = Object.values(cityMap).sort((a, b) => b.revenue - a.revenue);
 
       setSummary(s);
       setOrders(o);
@@ -118,21 +100,21 @@ export default function OrdersView() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <KpiCard
                   label="Total Revenue"
-                  value={summary ? fmtCurrency(summary.total_revenue) : '—'}
+                  value={summary ? fmtCurrency(summary?.total_revenue) : '—'}
                   sub={summary
-                    ? `${summary.date_range.start} → ${summary.date_range.end}`
+                    ? `${summary?.date_range.start} → ${summary?.date_range.end}`
                     : null}
                   accentVar="--accent"
                 />
                 <KpiCard
                   label="Total Orders"
-                  value={summary ? summary.total_orders.toLocaleString() : '—'}
+                  value={summary ? summary?.total_orders.toLocaleString() : '—'}
                   sub="fiscal year"
                   accentVar="--blue"
                 />
                 <KpiCard
                   label="Active Customers"
-                  value={summary ? summary.active_customers.toLocaleString() : '—'}
+                  value={summary ? summary.unique_customers.toLocaleString() : '—'}
                   sub="unique accounts"
                   accentVar="--accent"
                 />
@@ -165,7 +147,7 @@ export default function OrdersView() {
                   </div>
                 </div>
 
-                {orders.length > 0 ? (
+                {orders?.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
                     <ComposedChart data={orders} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
