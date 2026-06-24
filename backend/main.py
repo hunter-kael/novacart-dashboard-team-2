@@ -24,10 +24,14 @@ The connection and query helpers are already set up in connection.py.
 
 import os
 import time
+from urllib import response
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from datetime import datetime
+# from snowflake_connection import get_connection
+
 
 from connection import get_connection, execute_query
 
@@ -123,14 +127,14 @@ def authorize(request: Request):
 # ── Franchise endpoints ───────────────────────────────────────────────────────
 
 @app.get("/franchise/summary", tags=["Franchise"])
-def get_summary():
+def get_summary(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns an overview of all orders in the database:
     - Total revenue (delivered + shipped orders only)
     - Total orders
     - Number of unique customers
-    - Date range of available data
-
+    - filters the data based on the date inputed 
+    
     Expected response:
     {
         "total_revenue": 1284750.00,
@@ -138,71 +142,102 @@ def get_summary():
         "unique_customers": 380,
         "date_range": { "start": "2022-01-01", "end": "2022-12-31" }
     }
-
+    
     TODO: implement this endpoint.
     Hints:
       - Use fact_orders table
       - Filter status IN ('delivered', 'shipped') for revenue
-      - Use MIN/MAX of order_date for date_range
     """
     conn = get_connection()
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
     #
-    # results = execute_query(conn, """
-    #     SELECT
-    #         COUNT(DISTINCT order_id)    AS total_orders,
-    #         SUM(amount)                 AS total_revenue,
-    #         COUNT(DISTINCT customer_id) AS unique_customers,
-    #         MIN(order_date)             AS start_date,
-    #         MAX(order_date)             AS end_date
-    #     FROM fact_orders
-    #     WHERE status IN ('delivered', 'shipped')
-    # """)
-    #
-    # row = results[0]
-    # return {
-    #     "total_revenue":     round(row["total_revenue"] or 0, 2),
-    #     "total_orders":      row["total_orders"],
-    #     "unique_customers":  row["unique_customers"],
-    #     "date_range": {"start": row["start_date"], "end": row["end_date"]},
-    # }
+    check_inputs(start, end)
+    results = execute_query(conn, """
+        SELECT
+            SUM(amount) AS total_revenue,
+            COUNT(DISTINCT order_id) AS total_orders,
+            COUNT(DISTINCT customer_id) AS unique_customers
+        FROM fact_orders
+        WHERE status IN ('delivered', 'shipped')
+          AND order_date >= ?
+          AND order_date <= ?
+    """, [start, end])
+    if not results:
+        return {
+            "total_revenue": 0.0,
+            "total_orders": 0,
+            "unique_customers": 0,
+            "date_range": {"start": start, "end": end},
+        }
+    row = results[0]
+    return {
+        "total_revenue": round(row["total_revenue"] or 0, 2),
+        "total_orders": row["total_orders"] or 0,
+        "unique_customers": row["unique_customers"] or 0,
+        "date_range": {"start": start, "end": end},
+    }
     # ─────────────────────────────────────────────────────────────────────────
-
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
 @app.get("/franchise/orders", tags=["Franchise"])
-def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_orders(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns monthly order volume and revenue for the given date range.
     Used to power the orders overview chart.
-
-    Query parameters:
-      start: start date (YYYY-MM-DD)
-      end:   end date (YYYY-MM-DD)
-
-    Expected response:
-    [
-        { "month": "2022-01", "month_name": "January", "order_count": 842, "revenue": 128450.00 },
-        { "month": "2022-02", "month_name": "February", "order_count": 910, "revenue": 141230.00 }
-    ]
-
-    TODO: implement this endpoint.
-    Hints:
-      - JOIN fact_orders with dim_date on date_key
-      - GROUP BY year, month, month_name
-      - Filter order_date between start and end
-      - Only include delivered + shipped for revenue
     """
     conn = get_connection()
-
+    check_inputs(start, end)
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    if os.getenv("DATA_BACKEND") == "sqlite":
+        query = """
+            SELECT
+                SUBSTR(order_date, 1, 7) AS month,   -- YYYY-MM
+                COUNT(*) AS order_count,
+                SUM(
+                    CASE
+                        WHEN status IN ('delivered', 'shipped') THEN amount
+                        ELSE 0
+                    END
+                ) AS revenue
+            FROM fact_orders
+            WHERE order_date >= ?
+              AND order_date <= ?
+            GROUP BY month
+            ORDER BY month
+        """
+    else:
+        query = """
+            SELECT
+                SUBSTR(order_date, 1, 7) AS month,
+                COUNT(*) AS order_count,
+                SUM(
+                    CASE
+                        WHEN status IN ('delivered', 'shipped') THEN amount
+                        ELSE 0
+                    END
+                ) AS revenue
+            FROM fact_orders
+            WHERE order_date >= %s
+              AND order_date <= %s
+            GROUP BY month
+            ORDER BY month
+        """
+    results = execute_query(conn, query, [start, end])
+    if not results:
+        return []
+    response = []
+    for row in results:
+        response.append({
+            "month": row["month"], # YYYY-MM                     
+            "order_count": row["order_count"],
+            "revenue": round(row["revenue"] or 0, 2),
+        })
+    return response
 
 
 @app.get("/franchise/products", tags=["Franchise"])
-def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_products(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns the top 10 products by revenue for the given date range.
 
@@ -219,13 +254,43 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY revenue DESC, LIMIT 10
     """
     conn = get_connection()
-
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    check_inputs(start, end)
+    results = execute_query(conn, """
+        SELECT
+            p.product_id AS product_id,
+            p.name AS name,
+            p.category AS category,
+            COUNT(*) AS units_sold,
+            SUM(o.amount) AS revenue
+        FROM fact_orders o
+        JOIN dim_product p
+            ON o.product_id = p.product_id
+        WHERE o.status IN ('delivered', 'shipped')
+          AND o.order_date >= ?
+          AND o.order_date <= ?
+        GROUP BY
+            p.product_id,
+            p.name,
+            p.category
+        ORDER BY revenue DESC
+        LIMIT 10
+    """, [start, end])
+    if not results:
+        return []
+    response = []
+    for row in results:
+        response.append({
+            "name": row["name"],
+            "category": row["category"],
+            "units_sold": row["units_sold"],
+            "revenue": round(row["revenue"] or 0, 2),
+        })
+    return response
+    # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
 @app.get("/franchise/customers", tags=["Franchise"])
-def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_customers(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns the top 20 customers by revenue for the given date range.
 
@@ -243,13 +308,49 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY total_spent DESC, LIMIT 20
     """
     conn = get_connection()
+    check_inputs(start, end)
+    results = execute_query(conn, """
+        SELECT
+            c.customer_id AS customer_id,
+            c.name AS name,
+            c.addr_city AS city,
+            c.addr_state AS state,
+            COUNT(DISTINCT o.order_id) AS total_orders,
+            SUM(o.amount) AS total_spent
+        FROM fact_orders o
+        JOIN dim_customer c
+            ON o.customer_id = c.customer_id
+        WHERE c.is_current = 1
+          AND o.status IN ('delivered', 'shipped')
+          AND o.order_date >= ?
+          AND o.order_date <= ?
+        GROUP BY
+            c.customer_id,
+            c.name,
+            c.addr_city,
+            c.addr_state
+        ORDER BY total_spent DESC
+        LIMIT 20
+    """, [start, end])
+    if not results:
+        return []
+    response = []
+    for row in results:
+        response.append({
+            "customer_id": row["customer_id"],
+            "name": row["name"],
+            "city": row["city"],
+            "state": row["state"],
+            "total_orders": row["total_orders"],
+            "total_spent": round(row["total_spent"] or 0, 2),
+        })
+    return response
 
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
 @app.get("/franchise/cities", tags=["Franchise"])
-def get_cities(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_cities(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns revenue grouped by city and state.
     Used to power the geographic breakdown chart.
@@ -266,6 +367,41 @@ def get_cities(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY revenue DESC
     """
     conn = get_connection()
+    check_inputs(start, end)
+    results = execute_query(conn, f"""
+        SELECT
+            c.addr_city AS city,
+            c.addr_state AS state,
+            COUNT(o.order_id) AS order_count,
+            SUM(o.amount) AS revenue
+        FROM fact_orders o
+        JOIN dim_customer c
+            ON o.customer_id = c.customer_id
+        WHERE c.is_current = 1
+        AND o.order_date BETWEEN '{start}' AND '{end}'
+        GROUP BY c.addr_city, c.addr_state
+        ORDER BY revenue DESC""")
+    
+    return results
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+
+def check_inputs(start: str, end: str):
+    """
+    Validates the start and end date inputs.
+    Raises HTTPException if invalid.
+    """
+    try:
+        start_date = datetime.strptime(start, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date. Use YYYY-MM-DD."
+        )
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Start date must be before or equal to end date."
+        )
