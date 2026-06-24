@@ -127,13 +127,13 @@ def authorize(request: Request):
 # ── Franchise endpoints ───────────────────────────────────────────────────────
 
 @app.get("/franchise/summary", tags=["Franchise"])
-def get_summary():
+def get_summary(start: str = "2022-01-01", end: str = "2022-12-31"):
     """
     Returns an overview of all orders in the database:
     - Total revenue (delivered + shipped orders only)
     - Total orders
     - Number of unique customers
-    - Date range of available data
+    - filters the data based on the date inputed 
     
     Expected response:
     {
@@ -147,7 +147,6 @@ def get_summary():
     Hints:
       - Use fact_orders table
       - Filter status IN ('delivered', 'shipped') for revenue
-      - Use MIN/MAX of order_date for date_range
     """
     conn = get_connection()
 
@@ -156,21 +155,27 @@ def get_summary():
     check_inputs(start, end)
     results = execute_query(conn, """
         SELECT
-            SUM(amount)                 AS total_revenue,
-            COUNT(DISTINCT order_id)    AS total_orders,
-            COUNT(DISTINCT customer_id) AS unique_customers,
-            MIN(order_date)             AS start_date,
-            MAX(order_date)             AS end_date
+            SUM(amount) AS total_revenue,
+            COUNT(DISTINCT order_id) AS total_orders,
+            COUNT(DISTINCT customer_id) AS unique_customers
         FROM fact_orders
         WHERE status IN ('delivered', 'shipped')
-    """)
-    
+          AND order_date >= ?
+          AND order_date <= ?
+    """, [start, end])
+    if not results:
+        return {
+            "total_revenue": 0.0,
+            "total_orders": 0,
+            "unique_customers": 0,
+            "date_range": {"start": start, "end": end},
+        }
     row = results[0]
     return {
-        "total_revenue":     round(row["total_revenue"] or 0, 2),
-        "total_orders":      row["total_orders"],
-        "unique_customers":  row["unique_customers"],
-        "date_range": {"start": row["start_date"], "end": row["end_date"]},
+        "total_revenue": round(row["total_revenue"] or 0, 2),
+        "total_orders": row["total_orders"] or 0,
+        "unique_customers": row["unique_customers"] or 0,
+        "date_range": {"start": start, "end": end},
     }
     # ─────────────────────────────────────────────────────────────────────────
 
