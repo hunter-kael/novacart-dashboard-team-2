@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
+import { useFilters } from '../contexts/FilterContext';
 // import { getCustomers } from '../utils/api';
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_CUSTOMERS = [
   { customer_id: 'C001', name: 'Alice Johnson',  city: 'Austin',        state: 'TX', total_orders: 24, total_spent: 15430.50, last_order_date: '2022-12-15' },
@@ -95,13 +94,13 @@ const COLUMNS = [
 ];
 
 export default function CustomersView() {
-  const [startDate, setStartDate] = useState('2022-01-01');
-  const [endDate,   setEndDate]   = useState('2022-12-31');
   const [customers, setCustomers] = useState([]);
   const [sortBy,    setSortBy]    = useState('total_spent');
   const [sortDir,   setSortDir]   = useState('desc');
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
+
+  const {startDate, endDate, setStartDate, setEndDate} = useFilters();
 
   useEffect(() => { loadData(); }, []);
 

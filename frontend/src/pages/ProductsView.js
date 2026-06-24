@@ -5,8 +5,7 @@ import {
 } from 'recharts';
 import Navbar from '../components/Navbar';
 import { getProducts } from '../utils/api';
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
+import { useFilters } from '../contexts/FilterContext';
 
 const MOCK_PRODUCTS = [
   { product_id: 1,  name: 'NovaCart Express',         category: 'Logistics',   units_sold: 680, revenue: 295400 },
@@ -120,14 +119,14 @@ const SORT_OPTIONS = [
 ];
 
 export default function ProductsView() {
-  const [startDate, setStartDate] = useState('2022-01-01');
-  const [endDate,   setEndDate]   = useState('2022-12-31');
   const [products,  setProducts]  = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
   const [sortKey,   setSortKey]   = useState('revenue');
   const [sortDir,   setSortDir]   = useState('desc');
   const [activeBar, setActiveBar] = useState(null);
+
+  const {startDate, endDate, setStartDate, setEndDate} = useFilters();
 
   useEffect(() => { loadData(); }, []);
 

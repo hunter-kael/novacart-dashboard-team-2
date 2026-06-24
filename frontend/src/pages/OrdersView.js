@@ -4,147 +4,19 @@ import {
   ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 import Navbar from '../components/Navbar';
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const mockSummary = {
-  franchise_id: 'fr-123',
-  total_revenue: 125430.75,
-  total_orders: 4821,
-  active_customers: 3120,
-  date_range: { start: '2023-01-01', end: '2023-12-31' },
-};
-
-const mockOrders = [
-  { month: '2023-01', month_name: 'Jan', order_count: 320, revenue: 8420 },
-  { month: '2023-02', month_name: 'Feb', order_count: 280, revenue: 7920 },
-  { month: '2023-03', month_name: 'Mar', order_count: 410, revenue: 12550 },
-  { month: '2023-04', month_name: 'Apr', order_count: 450, revenue: 14500 },
-  { month: '2023-05', month_name: 'May', order_count: 380, revenue: 11120 },
-  { month: '2023-06', month_name: 'Jun', order_count: 420, revenue: 13230 },
-  { month: '2023-07', month_name: 'Jul', order_count: 390, revenue: 11800 },
-  { month: '2023-08', month_name: 'Aug', order_count: 430, revenue: 13900 },
-  { month: '2023-09', month_name: 'Sep', order_count: 360, revenue: 10200 },
-  { month: '2023-10', month_name: 'Oct', order_count: 420, revenue: 12800 },
-  { month: '2023-11', month_name: 'Nov', order_count: 460, revenue: 15140 },
-  { month: '2023-12', month_name: 'Dec', order_count: 510, revenue: 16850 },
-];
-
-const mockCities = [
-  { city: 'New York', state: 'NY', revenue: 120500 },
-  { city: 'Los Angeles', state: 'CA', revenue: 24500 },
-  { city: 'Chicago', state: 'IL', revenue: 15800 },
-  { city: 'Houston', state: 'TX', revenue: 14200 },
-  { city: 'Phoenix', state: 'AZ', revenue: 11000 },
-  { city: 'Philadelphia', state: 'PA', revenue: 9400 },
-  { city: 'San Antonio', state: 'TX', revenue: 7600 },
-  { city: 'San Diego', state: 'CA', revenue: 7100 },
-  { city: 'Dallas', state: 'TX', revenue: 6500 },
-  { city: 'San Jose', state: 'CA', revenue: 5900 },
-  { city: 'Austin', state: 'TX', revenue: 5200 },
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const fmtCurrency = (v) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(v);
-
-const fmtShort = (v) => {
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}k`;
-  return `$${v}`;
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function KpiCard({ label, value, sub, accentVar }) {
-  return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border)',
-      borderLeft: `4px solid var(${accentVar})`,
-      borderRadius: 'var(--radius)',
-      padding: '18px 20px',
-      boxShadow: 'var(--shadow)',
-    }}>
-      <div style={{
-        fontSize: 11,
-        fontWeight: 600,
-        color: 'var(--text-muted)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-        marginBottom: 8,
-      }}>
-        {label}
-      </div>
-      <div style={{
-        fontSize: 26,
-        fontWeight: 700,
-        color: 'var(--text-primary)',
-        lineHeight: 1,
-        marginBottom: sub ? 6 : 0,
-      }}>
-        {value}
-      </div>
-      {sub && (
-        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sub}</div>
-      )}
-    </div>
-  );
-}
-
-function ChartTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border)',
-      borderRadius: 8,
-      padding: '10px 14px',
-      boxShadow: 'var(--shadow)',
-      fontSize: 12,
-      color: 'var(--text-primary)',
-    }}>
-      <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
-      {payload.map((p) => (
-        <div key={p.dataKey} style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          color: 'var(--text-secondary)',
-          marginBottom: 2,
-        }}>
-          <span style={{
-            display: 'inline-block',
-            width: 8,
-            height: 8,
-            borderRadius: p.dataKey === 'order_count' ? '50%' : 2,
-            background: p.color,
-            flexShrink: 0,
-          }} />
-          {p.dataKey === 'revenue'
-            ? fmtCurrency(p.value)
-            : `${p.value.toLocaleString()} orders`}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+import { getMockSummary, mockOrders, mockCityRows } from '../utils/mockData';
+import { fmtCurrency, fmtShort } from '../utils/utils';
+import { KpiCard, ChartTooltip } from '../components/OrdersComps';
+import { useFilters } from '../contexts/FilterContext';
 
 export default function OrdersView() {
-  const [startDate, setStartDate] = useState(mockSummary.date_range.start);
-  const [endDate, setEndDate] = useState(mockSummary.date_range.end);
   const [summary, setSummary] = useState(null);
   const [orders, setOrders] = useState([]);
   const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const {startDate, endDate, setStartDate, setEndDate} = useFilters();
 
   useEffect(() => { loadData(); }, []);
 
@@ -154,16 +26,30 @@ export default function OrdersView() {
     try {
       // Swap these with real API calls when ready:
       // const [s, o, c] = await Promise.all([
-      //   getSummary(franchiseId),
+      //   getSummary(franchiseId, startDate, endDate),
       //   getOrders(franchiseId, startDate, endDate),
       //   getCities(franchiseId, startDate, endDate),
       // ]);
 
-      const s = mockSummary;
+      const s = getMockSummary(startDate, endDate);
+
       const startMonth = startDate.slice(0, 7);
       const endMonth = endDate.slice(0, 7);
       const o = mockOrders.filter((r) => r.month >= startMonth && r.month <= endMonth);
-      const c = [...mockCities].sort((a, b) => b.revenue - a.revenue);
+
+      const filtered = mockCityRows.filter(
+        (r) => r.date >= startDate && r.date <= endDate
+      );
+      const cityMap = {};
+      for (const row of filtered) {
+        const key = `${row.city}||${row.state}`;
+        if (!cityMap[key]) {
+          cityMap[key] = { city: row.city, state: row.state, order_count: 0, revenue: 0 };
+        }
+        cityMap[key].order_count += row.order_count;
+        cityMap[key].revenue     += row.revenue;
+      }
+      const c = Object.values(cityMap).sort((a, b) => b.revenue - a.revenue);
 
       setSummary(s);
       setOrders(o);
@@ -175,7 +61,7 @@ export default function OrdersView() {
     }
   }
 
-  const maxCityRev = cities[0]?.revenue ?? 1;
+  const totalCityRev = cities.slice(0, 10).reduce((sum, c) => sum + c.revenue, 0);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -354,6 +240,7 @@ export default function OrdersView() {
                         { label: 'City',    align: 'left'   },
                         { label: 'State',   align: 'left'   },
                         { label: 'Share',   align: 'left'   },
+                        { label: 'Orders',  align: 'right'  },
                         { label: 'Revenue', align: 'right'  },
                       ].map(({ label, align }) => (
                         <th key={label} style={{
@@ -373,8 +260,10 @@ export default function OrdersView() {
                   </thead>
                   <tbody>
                     {cities.slice(0, 10).map((c, i) => {
-                      const totalCityRev = cities.slice(0, 10).reduce((sum, c) => sum + c.revenue, 0);
-                      const sharePct = Math.round((c.revenue / totalCityRev) * 100);                      const isTop = i === 0;
+                      const sharePct = totalCityRev > 0
+                        ? Math.round((c.revenue / totalCityRev) * 100)
+                        : 0;
+                      const isTop = i === 0;
                       return (
                         <tr
                           key={`${c.city}-${c.state}`}
@@ -413,7 +302,7 @@ export default function OrdersView() {
                           </td>
 
                           {/* Share bar */}
-                          <td style={{ padding: '10px 10px', width: '38%' }}>
+                          <td style={{ padding: '10px 10px', width: '34%' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <div style={{
                                 flex: 1,
@@ -441,6 +330,16 @@ export default function OrdersView() {
                             </div>
                           </td>
 
+                          {/* Order count */}
+                          <td style={{
+                            padding: '10px 10px',
+                            textAlign: 'right',
+                            color: 'var(--text-secondary)',
+                            fontSize: 12,
+                          }}>
+                            {c.order_count != null ? Number(c.order_count).toLocaleString() : '—'}
+                          </td>
+
                           {/* Revenue */}
                           <td style={{
                             padding: '10px 10px',
@@ -449,7 +348,7 @@ export default function OrdersView() {
                             color: isTop ? 'var(--text-primary)' : 'var(--text-secondary)',
                             whiteSpace: 'nowrap',
                           }}>
-                            {fmtCurrency(c.revenue)}
+                            {c.revenue != null ? fmtCurrency(c.revenue) : '—'}
                           </td>
                         </tr>
                       );
@@ -457,7 +356,7 @@ export default function OrdersView() {
                   </tbody>
                 </table>
               ) : (
-                <div className="loading" style={{ height: 160 }}>No city data available</div>
+                <div className="loading" style={{ height: 160 }}>No city data for selected range</div>
               )}
             </div>
           </>

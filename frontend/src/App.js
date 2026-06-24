@@ -5,10 +5,12 @@ import OrdersView   from './pages/OrdersView';
 import ProductsView from './pages/ProductsView';
 import CustomersView from './pages/CustomersView';
 import './App.css';
+import { FilterProvider } from './contexts/FilterContext';
 
 export default function App() {
   return (
     <ThemeProvider>
+      <FilterProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/"          element={<Navigate to="/orders" replace />} />
@@ -18,6 +20,7 @@ export default function App() {
           <Route path="*"          element={<Navigate to="/orders" replace />} />
         </Routes>
       </BrowserRouter>
+      </FilterProvider>
     </ThemeProvider>
   );
 }
