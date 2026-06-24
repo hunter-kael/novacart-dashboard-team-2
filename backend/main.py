@@ -50,6 +50,7 @@ app = FastAPI(
 PORT              = int(os.getenv("PORT", 8000))
 CLIENT_VALIDATION = os.getenv("CLIENT_VALIDATION", "Dev")
 START_TIME        = time.time()
+PLACEHOLDER = "?" if os.getenv("DATA_BACKEND") == "sqlite" else "%s"
 
 # CORS — only needed for local development
 # In SPCS, the NGINX router handles routing so CORS is not required
@@ -60,7 +61,6 @@ if CLIENT_VALIDATION == "Dev":
         allow_methods=["GET"],
         allow_headers=["*"],
     )
-
 
 # ── Startup log ───────────────────────────────────────────────────────────────
 
@@ -149,9 +149,6 @@ def get_summary():
       - Use MIN/MAX of order_date for date_range
     """
     conn = get_connection()
-
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    #
     results = execute_query(conn, """
         SELECT
             SUM(amount)                 AS total_revenue,
@@ -170,11 +167,6 @@ def get_summary():
         "unique_customers":  row["unique_customers"],
         "date_range": {"start": row["start_date"], "end": row["end_date"]},
     }
-    # ─────────────────────────────────────────────────────────────────────────
-
-    
-
-    # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
 
 
 @app.get("/franchise/orders", tags=["Franchise"])
@@ -185,41 +177,22 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
     """
     conn = get_connection()
 
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    if os.getenv("DATA_BACKEND") == "sqlite":
-        query = """
-            SELECT
-                SUBSTR(order_date, 1, 7) AS month,   -- YYYY-MM
-                COUNT(*) AS order_count,
-                SUM(
-                    CASE
-                        WHEN status IN ('delivered', 'shipped') THEN amount
-                        ELSE 0
-                    END
-                ) AS revenue
-            FROM fact_orders
-            WHERE order_date >= ?
-              AND order_date <= ?
-            GROUP BY month
-            ORDER BY month
-        """
-    else:
-        query = """
-            SELECT
-                SUBSTR(order_date, 1, 7) AS month,
-                COUNT(*) AS order_count,
-                SUM(
-                    CASE
-                        WHEN status IN ('delivered', 'shipped') THEN amount
-                        ELSE 0
-                    END
-                ) AS revenue
-            FROM fact_orders
-            WHERE order_date >= %s
-              AND order_date <= %s
-            GROUP BY month
-            ORDER BY month
-        """
+    query = f"""
+        SELECT
+            SUBSTR(order_date, 1, 7) AS month,
+            COUNT(*) AS order_count,
+            SUM(
+                CASE
+                    WHEN status IN ('delivered', 'shipped') THEN amount
+                    ELSE 0
+                END
+            ) AS revenue
+        FROM fact_orders
+        WHERE order_date >= {PLACEHOLDER}
+        AND order_date <= {PLACEHOLDER}
+        GROUP BY month
+        ORDER BY month
+    """
     results = execute_query(conn, query, [start, end])
     if not results:
         return []
@@ -263,8 +236,8 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
         JOIN dim_product p
             ON o.product_id = p.product_id
         WHERE o.status IN ('delivered', 'shipped')
-          AND o.order_date >= ?
-          AND o.order_date <= ?
+          AND o.order_date >= {PLACEHOLDER}
+          AND o.order_date <= {PLACEHOLDER}
         GROUP BY
             p.product_id,
             p.name,
@@ -305,6 +278,7 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY total_spent DESC, LIMIT 20
     """
     conn = get_connection()
+
     results = execute_query(conn, """
         SELECT
             c.customer_id AS customer_id,
@@ -318,8 +292,8 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
             ON o.customer_id = c.customer_id
         WHERE c.is_current = 1
           AND o.status IN ('delivered', 'shipped')
-          AND o.order_date >= ?
-          AND o.order_date <= ?
+          AND o.order_date >= {PLACEHOLDER}
+          AND o.order_date <= {PLACEHOLDER}
         GROUP BY
             c.customer_id,
             c.name,
