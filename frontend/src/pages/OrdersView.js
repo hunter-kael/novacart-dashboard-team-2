@@ -16,6 +16,8 @@ export default function OrdersView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  console.log("orders", orders);
+
   const {startDate, endDate, setStartDate, setEndDate} = useFilters();
 
   useEffect(() => { loadData(); }, []);
@@ -29,7 +31,6 @@ export default function OrdersView() {
          getOrders(startDate, endDate),
          getCities(startDate, endDate),
        ]);
-       console.log('Summary:', s);
 
       const startMonth = startDate.slice(0, 7);
       const endMonth = endDate.slice(0, 7);
@@ -153,10 +154,24 @@ export default function OrdersView() {
                     <ComposedChart data={orders} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                       <XAxis
+                        xAxisId="name"
                         dataKey="month_name"
                         tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
                         axisLine={{ stroke: 'var(--border)' }}
                         tickLine={false}
+                      />
+
+// Add a second XAxis below it for month/year
+                      <XAxis
+                        xAxisId="month"
+                        dataKey="month"
+                        tick={{ fontSize: 10, fill: 'var(--text-muted)', opacity: 0.6 }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(val) => {
+                        const [y, m] = val.split('-');
+                        return `${m}/${y.slice(2)}`;
+                        }}
                       />
                       <YAxis
                         yAxisId="rev"
@@ -176,6 +191,7 @@ export default function OrdersView() {
                       />
                       <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--border)', opacity: 0.4 }} />
                       <Bar
+                        xAxisId="name"
                         yAxisId="rev"
                         dataKey="revenue"
                         fill="var(--accent)"
@@ -183,6 +199,7 @@ export default function OrdersView() {
                         opacity={0.85}
                       />
                       <Line
+                        xAxisId="name"
                         yAxisId="ord"
                         dataKey="order_count"
                         stroke="var(--blue)"
