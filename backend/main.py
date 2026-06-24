@@ -126,13 +126,13 @@ def authorize(request: Request):
 # ── Franchise endpoints ───────────────────────────────────────────────────────
 
 @app.get("/franchise/summary", tags=["Franchise"])
-def get_summary(start: str = "2022-01-01", end: str = "2022-03-31"):
+def get_summary(start: str = "2022-01-01", end: str = "2022-12-31"):
     """
     Returns an overview of all orders in the database:
     - Total revenue (delivered + shipped orders only)
     - Total orders
     - Number of unique customers
-    - Date range of available data
+    - filters the data based on the date inputed 
     
     Expected response:
     {
@@ -146,7 +146,6 @@ def get_summary(start: str = "2022-01-01", end: str = "2022-03-31"):
     Hints:
       - Use fact_orders table
       - Filter status IN ('delivered', 'shipped') for revenue
-      - Use MIN/MAX of order_date for date_range
     """
     conn = get_connection()
 
