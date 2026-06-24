@@ -29,6 +29,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from datetime import datetime
 # from snowflake_connection import get_connection
 
 
@@ -126,13 +127,13 @@ def authorize(request: Request):
 # ── Franchise endpoints ───────────────────────────────────────────────────────
 
 @app.get("/franchise/summary", tags=["Franchise"])
-def get_summary():
+def get_summary(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns an overview of all orders in the database:
     - Total revenue (delivered + shipped orders only)
     - Total orders
     - Number of unique customers
-    - Date range of available data
+    - filters the data based on the date inputed 
     
     Expected response:
     {
@@ -146,38 +147,47 @@ def get_summary():
     Hints:
       - Use fact_orders table
       - Filter status IN ('delivered', 'shipped') for revenue
-      - Use MIN/MAX of order_date for date_range
     """
     conn = get_connection()
+
+    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
+    #
+    check_inputs(start, end)
     results = execute_query(conn, """
         SELECT
-            SUM(amount)                 AS total_revenue,
-            COUNT(DISTINCT order_id)    AS total_orders,
-            COUNT(DISTINCT customer_id) AS unique_customers,
-            MIN(order_date)             AS start_date,
-            MAX(order_date)             AS end_date
+            SUM(amount) AS total_revenue,
+            COUNT(DISTINCT order_id) AS total_orders,
+            COUNT(DISTINCT customer_id) AS unique_customers
         FROM fact_orders
         WHERE status IN ('delivered', 'shipped')
-    """)
-    
+          AND order_date >= ?
+          AND order_date <= ?
+    """, [start, end])
+    if not results:
+        return {
+            "total_revenue": 0.0,
+            "total_orders": 0,
+            "unique_customers": 0,
+            "date_range": {"start": start, "end": end},
+        }
     row = results[0]
     return {
-        "total_revenue":     round(row["total_revenue"] or 0, 2),
-        "total_orders":      row["total_orders"],
-        "unique_customers":  row["unique_customers"],
-        "date_range": {"start": row["start_date"], "end": row["end_date"]},
+        "total_revenue": round(row["total_revenue"] or 0, 2),
+        "total_orders": row["total_orders"] or 0,
+        "unique_customers": row["unique_customers"] or 0,
+        "date_range": {"start": start, "end": end},
     }
 
 
 @app.get("/franchise/orders", tags=["Franchise"])
-def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_orders(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns monthly order volume and revenue for the given date range.
     Used to power the orders overview chart.
     """
     conn = get_connection()
-
-    query = f"""
+    check_inputs(start, end)
+    results = execute_query(conn, f"""
         SELECT
             SUBSTR(order_date, 1, 7) AS month,
             COUNT(*) AS order_count,
@@ -192,8 +202,7 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
         AND order_date <= {PLACEHOLDER}
         GROUP BY month
         ORDER BY month
-    """
-    results = execute_query(conn, query, [start, end])
+    """, [start, end])
     if not results:
         return []
     response = []
@@ -207,7 +216,7 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
 
 
 @app.get("/franchise/products", tags=["Franchise"])
-def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_products(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns the top 10 products by revenue for the given date range.
 
@@ -224,8 +233,8 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY revenue DESC, LIMIT 10
     """
     conn = get_connection()
-
-    results = execute_query(conn, """
+    check_inputs(start, end)
+    results = execute_query(conn, f"""
         SELECT
             p.product_id AS product_id,
             p.name AS name,
@@ -260,7 +269,7 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
 
 
 @app.get("/franchise/customers", tags=["Franchise"])
-def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_customers(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns the top 20 customers by revenue for the given date range.
 
@@ -278,8 +287,8 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY total_spent DESC, LIMIT 20
     """
     conn = get_connection()
-
-    results = execute_query(conn, """
+    check_inputs(start, end)
+    results = execute_query(conn, f"""
         SELECT
             c.customer_id AS customer_id,
             c.name AS name,
@@ -320,7 +329,7 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
 
 
 @app.get("/franchise/cities", tags=["Franchise"])
-def get_cities(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_cities(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns revenue grouped by city and state.
     Used to power the geographic breakdown chart.
@@ -337,6 +346,7 @@ def get_cities(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY revenue DESC
     """
     conn = get_connection()
+    check_inputs(start, end)
     results = execute_query(conn, f"""
         SELECT
             c.addr_city AS city,
@@ -355,3 +365,22 @@ def get_cities(start: str = "2022-01-01", end: str = "2022-12-31"):
 
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
     # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+
+def check_inputs(start: str, end: str):
+    """
+    Validates the start and end date inputs.
+    Raises HTTPException if invalid.
+    """
+    try:
+        start_date = datetime.strptime(start, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date. Use YYYY-MM-DD."
+        )
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Start date must be before or equal to end date."
+        )
