@@ -127,7 +127,7 @@ def authorize(request: Request):
 # ── Franchise endpoints ───────────────────────────────────────────────────────
 
 @app.get("/franchise/summary", tags=["Franchise"])
-def get_summary(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_summary(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns an overview of all orders in the database:
     - Total revenue (delivered + shipped orders only)
@@ -179,13 +179,9 @@ def get_summary(start: str = "2022-01-01", end: str = "2022-12-31"):
     }
     # ─────────────────────────────────────────────────────────────────────────
 
-    
-
-    # raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
-
 
 @app.get("/franchise/orders", tags=["Franchise"])
-def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_orders(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns monthly order volume and revenue for the given date range.
     Used to power the orders overview chart.
@@ -241,7 +237,7 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
 
 
 @app.get("/franchise/products", tags=["Franchise"])
-def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_products(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns the top 10 products by revenue for the given date range.
 
@@ -294,7 +290,7 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
 
 
 @app.get("/franchise/customers", tags=["Franchise"])
-def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_customers(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns the top 20 customers by revenue for the given date range.
 
@@ -354,7 +350,7 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
 
 
 @app.get("/franchise/cities", tags=["Franchise"])
-def get_cities(start: str = "2022-01-01", end: str = "2022-12-31"):
+def get_cities(start: str = "2021-01-01", end: str = "2025-12-31"):
     """
     Returns revenue grouped by city and state.
     Used to power the geographic breakdown chart.
