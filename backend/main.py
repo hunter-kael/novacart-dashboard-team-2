@@ -153,15 +153,15 @@ def get_summary(start: str = "2021-01-01", end: str = "2025-12-31"):
     # ── YOUR CODE HERE ────────────────────────────────────────────────────────
     #
     check_inputs(start, end)
-    results = execute_query(conn, """
+    results = execute_query(conn, f"""
         SELECT
             SUM(amount) AS total_revenue,
             COUNT(DISTINCT order_id) AS total_orders,
             COUNT(DISTINCT customer_id) AS unique_customers
         FROM fact_orders
         WHERE status IN ('delivered', 'shipped')
-          AND order_date >= ?
-          AND order_date <= ?
+          AND order_date >= {PLACEHOLDER}
+          AND order_date <= {PLACEHOLDER}
     """, [start, end])
     if not results:
         return {
