@@ -156,3 +156,7 @@ export PATH="$HOME/Library/Python/3.9/bin:$PATH"
 ```bash
 docker build --no-cache --platform linux/amd64 ...
 ```
+
+## Public Facing Website
+Public Website Link{https://ncbmyoub-se58322-snowflake-containers-adrianm.snowflakecomputing.app}
+Use this link and a valid login to view the Public website. 
