@@ -158,5 +158,5 @@ docker build --no-cache --platform linux/amd64 ...
 ```
 
 ## Public Facing Website
-(Public Website Link)[https://ncbmyoub-se58322-snowflake-containers-adrianm.snowflakecomputing.app]
+[Public Website Link](https://ncbmyoub-se58322-snowflake-containers-adrianm.snowflakecomputing.app)
 Use this link and a valid login to view the Public website. 
